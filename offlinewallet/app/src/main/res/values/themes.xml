@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.OfflineWallet" parent="Theme.Material3.DayNight">
+        <item name="colorPrimary">@color/wallet_primary</item>
+        <item name="colorPrimaryDark">@color/wallet_primary_dark</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorSecondary">@color/wallet_accent</item>
+        <item name="android:windowBackground">@color/wallet_background</item>
+    </style>
+</resources>
