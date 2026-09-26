@@ -1,4 +1,4 @@
-# Offline Micro-Payment Infrastructure (PS-07)
+# Offline Micro-Payment Infrastructure
 
 A lightweight cryptographic protocol enabling secure peer-to-peer digital wallet transfers over NFC/Bluetooth with **zero live connectivity**, reconciled with a central server once connectivity returns.
 
