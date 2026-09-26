@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Wallet Server Admin</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 40px auto; background: #F5F7FA; }
+    h1 { font-size: 20px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab { padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; background: #E5E7EB; color: #374151; }
+    .tab.active { background: #111827; color: white; }
+    .card { background: white; border-radius: 10px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .amount { font-size: 22px; font-weight: bold; }
+    .amount.sent { color: #C62828; }
+    .amount.received { color: #2E7D32; }
+    .meta { color: #6B7280; font-size: 13px; margin-top: 4px; word-break: break-all; }
+    .flow { color: #374151; font-size: 13px; margin-top: 6px; word-break: break-all; }
+    .flow .arrow { color: #9CA3AF; margin: 0 6px; }
+    button { padding: 8px 16px; border: none; border-radius: 6px; margin-right: 8px; margin-top: 10px; cursor: pointer; font-size: 14px; }
+    .approve { background: #2E7D32; color: white; }
+    .reject { background: #C62828; color: white; }
+    .empty { color: #6B7280; padding: 20px; text-align: center; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+  </style>
+</head>
+<body>
+<h1>Wallet Server Admin</h1>
+
+<div class="tabs">
+  <div class="tab active" id="tabPending" onclick="switchTab('pending')">Pending Top-ups</div>
+  <div class="tab" id="tabQr" onclick="switchTab('qr')">QR Transactions</div>
+</div>
+
+<div class="panel active" id="panelPending">
+  <div id="list"></div>
+</div>
+
+<div class="panel" id="panelQr">
+  <div id="qrList"></div>
+</div>
+
+<script>
+  let currentTab = 'pending';
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tabPending').className = 'tab' + (tab === 'pending' ? ' active' : '');
+    document.getElementById('tabQr').className = 'tab' + (tab === 'qr' ? ' active' : '');
+    document.getElementById('panelPending').className = 'panel' + (tab === 'pending' ? ' active' : '');
+    document.getElementById('panelQr').className = 'panel' + (tab === 'qr' ? ' active' : '');
+    if (tab === 'pending') load(); else loadQr();
+  }
+
+  // ---------- Pending top-ups (unchanged) ----------
+
+  async function load() {
+    const res = await fetch('/admin/topup/pending');
+    const items = await res.json();
+    const list = document.getElementById('list');
+    list.innerHTML = '';
+
+    if (items.length === 0) {
+      list.innerHTML = '<div class="empty">No pending requests.</div>';
+      return;
+    }
+
+    for (const r of items) {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `
+          <div class="amount">\u20B9${(r.amount / 100).toFixed(2)}</div>
+          <div class="meta">Request ID: ${r.requestId}</div>
+          <div class="meta">Wallet key: ${r.publicKeyB64}</div>
+          <div class="meta">Requested: ${new Date(r.timestamp).toLocaleString()}</div>
+          <button class="approve" onclick="act('${r.requestId}','approve')">Approve</button>
+          <button class="reject" onclick="act('${r.requestId}','reject')">Reject</button>
+        `;
+      list.appendChild(div);
+    }
+  }
+
+  async function act(id, action) {
+    await fetch(`/admin/topup/${id}/${action}`, { method: 'POST' });
+    load();
+  }
+
+  // ---------- QR Transactions (new) ----------
+  // Shows two-way-QR payments that were completed fully offline and later
+  // reported to /qrsync/report — each one already independently verified
+  // (both signatures) by the server before it was recorded here.
+
+  function shortKey(b64) {
+    return b64.length > 18 ? b64.substring(0, 18) + '\u2026' : b64;
+  }
+
+  async function loadQr() {
+    const res = await fetch('/admin/qrsync/all');
+    const items = await res.json();
+    const list = document.getElementById('qrList');
+    list.innerHTML = '';
+
+    if (items.length === 0) {
+      list.innerHTML = '<div class="empty">No confirmed QR transactions yet.</div>';
+      return;
+    }
+
+    for (const r of items) {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `
+          <div class="amount received">\u20B9${(r.amountPaise / 100).toFixed(2)}</div>
+          <div class="flow">${shortKey(r.senderKeyB64)}<span class="arrow">\u2192</span>${shortKey(r.receiverKeyB64)}</div>
+          <div class="meta">Nonce: ${r.nonce}</div>
+          <div class="meta">Signed on device: ${new Date(r.timestamp).toLocaleString()}</div>
+          <div class="meta">Recorded by server: ${new Date(r.recordedAt).toLocaleString()}</div>
+        `;
+      list.appendChild(div);
+    }
+  }
+
+  load();
+  setInterval(() => {
+    if (currentTab === 'pending') load(); else loadQr();
+  }, 5000); // auto-refresh whichever tab is active
+</script>
+</body>
+</html>
